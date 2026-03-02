@@ -1,0 +1,9 @@
+Flask==3.0.0
+flask-cors==4.0.0
+python-dotenv==1.0.0
+
+# Optional - uncomment if needed:
+# flask-sqlalchemy==3.1.1
+# psycopg2-binary==2.9.9  # For PostgreSQL
+# pymongo==4.6.1  # For MongoDB
+# requests==2.31.0
