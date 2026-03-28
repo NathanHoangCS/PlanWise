@@ -1,42 +1,68 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-export const apiService = {
-  // Get backend health status
-  async getHealth() {
-    const response = await fetch(`${API_BASE_URL}/health`);
-    return response.json();
+const apiService = {
+  // ── Health ──────────────────────────────────────────────────────────────
+  getHealth: async () => {
+    const res = await fetch(`${API_BASE}/api/health`);
+    if (!res.ok) throw new Error('Health check failed');
+    return res.json();
   },
 
-  // Get all users
-  async getUsers() {
-    const response = await fetch(`${API_BASE_URL}/api/users`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch users');
-    }
-    return response.json();
+  // ── Users ────────────────────────────────────────────────────────────────
+  getUsers: async () => {
+    const res = await fetch(`${API_BASE}/api/users`);
+    if (!res.ok) throw new Error('Failed to fetch users');
+    return res.json();
   },
 
-  // Get single user
-  async getUser(userId) {
-    const response = await fetch(`${API_BASE_URL}/api/users/${userId}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch user');
-    }
-    return response.json();
+  getUser: async (id) => {
+    const res = await fetch(`${API_BASE}/api/users/${id}`);
+    if (!res.ok) throw new Error(`Failed to fetch user ${id}`);
+    return res.json();
   },
 
-  // Create new user
-  async createUser(userData) {
-    const response = await fetch(`${API_BASE_URL}/api/users`, {
+  createUser: async (data) => {
+    const res = await fetch(`${API_BASE}/api/users`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(userData),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
     });
-    if (!response.ok) {
-      throw new Error('Failed to create user');
-    }
-    return response.json();
+    if (!res.ok) throw new Error('Failed to create user');
+    return res.json();
+  },
+
+  // ── Events ───────────────────────────────────────────────────────────────
+  getEvents: async ({ month, year } = {}) => {
+    const params = new URLSearchParams();
+    if (month) params.set('month', month);
+    if (year)  params.set('year', year);
+    const res = await fetch(`${API_BASE}/api/events?${params}`);
+    if (!res.ok) throw new Error('Failed to fetch events');
+    return res.json();
+  },
+
+  createEvent: async (data) => {
+    const res = await fetch(`${API_BASE}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to create event');
+    return res.json();
+  },
+
+  deleteEvent: async (id) => {
+    const res = await fetch(`${API_BASE}/api/events/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Failed to delete event ${id}`);
+    return res.json();
+  },
+
+  // ── Suggestions ──────────────────────────────────────────────────────────
+  getSuggestions: async () => {
+    const res = await fetch(`${API_BASE}/api/suggestions`);
+    if (!res.ok) throw new Error('Failed to fetch suggestions');
+    return res.json();
   },
 };
+
+export { apiService };
