@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import './CalendarPage.css';
+import AIPanel from './AIPanel';
 
 /* ── Helpers ── */
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -272,7 +273,7 @@ function WeekView({ weekDates, events, today, onSlotClick, onEventClick }) {
 }
 
 /* ── Main Page ── */
-export default function CalendarPage() {
+export default function CalendarPage({ profile }) {
   const [today] = useState(new Date());
   const [current, setCurrent] = useState(new Date());
   const [view, setView] = useState('month');
@@ -348,57 +349,24 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        {/* ML Suggestions */}
-        <div className="sidebar-section">
-          <div className="sidebar-label">
-            <span>✨ AI Suggestions</span>
-            <span className="badge-new">NEW</span>
-          </div>
-          <div className="suggestions-list">
-            {SUGGESTIONS.map(s => (
-              <div key={s.id} className="suggestion-card">
-                <div className="suggestion-icon">{s.icon}</div>
-                <div className="suggestion-body">
-                  <div className="suggestion-title">{s.title}</div>
-                  <div className="suggestion-time">{s.time}</div>
-                  <div className="suggestion-reason">{s.reason}</div>
-                </div>
-                <button className="suggestion-add" onClick={() => {
-                  // Parse the suggestion into an approximate event
-                  const d = new Date();
-                  d.setDate(d.getDate() + 1);
-                  d.setHours(9, 0, 0, 0);
-                  setEvents(prev => [...prev, {
-                    id: randomId(),
-                    title: s.title,
-                    date: d,
-                    hour: 9, min: 0, endHour: 11, endMin: 0,
-                    color: s.icon === '🧠' ? 'focus' : 'accent',
-                    type: s.icon === '🧠' ? 'focus' : 'meeting',
-                  }]);
-                }}>＋</button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Focus protection */}
-        <div className="sidebar-section">
-          <div className="sidebar-label">Focus Protection</div>
-          <div className="focus-protection-card">
-            <div className="focus-prot-header">
-              <span className="focus-prot-icon">🛡️</span>
-              <div>
-                <div className="focus-prot-title">Focus Mode</div>
-                <div className="focus-prot-sub">Block distractions during deep work</div>
-              </div>
-            </div>
-            <label className="toggle">
-              <input type="checkbox" defaultChecked />
-              <span className="toggle-track" />
-            </label>
-          </div>
-        </div>
+        {/* AI Panel */}
+        <AIPanel
+          profile={profile}
+          onEventParsed={(parsed) => {
+            const d = new Date(parsed.date);
+            setEvents(prev => [...prev, {
+              id: randomId(),
+              title: parsed.title,
+              date: d,
+              hour: parsed.hour,
+              min: parsed.min,
+              endHour: parsed.end_hour,
+              endMin: parsed.end_min,
+              color: parsed.type === 'focus' ? 'focus' : 'accent',
+              type: parsed.type,
+            }]);
+          }}
+        />
       </aside>
 
       {/* Main Calendar */}

@@ -1,15 +1,23 @@
+import os
 from flask import Flask, jsonify
 from flask_cors import CORS
 from models import db
 from api_routes import bp
+from ai_routes import ai_bp
 
 def create_app():
     app = Flask(__name__)
     CORS(app)
+
+    # ── Config ───────────────────────────────────────────────────────────────
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///planwise.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
     db.init_app(app)
+
+    # Register blueprints
     app.register_blueprint(bp)
+    app.register_blueprint(ai_bp)
 
     @app.route('/')
     def home():
