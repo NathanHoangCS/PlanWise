@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import './CalendarPage.css';
 import AIPanel from './AIPanel';
+import PatternNudge from './PatternNudge';
+import ConflictModal from './ConflictModal';
 
 /* ── Helpers ── */
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -37,44 +39,7 @@ function randomId() {
   return Math.random().toString(36).slice(2, 9);
 }
 
-/* ── Seed events ── */
-const today = new Date();
-const SEED_EVENTS = [
-  {
-    id: 'e1',
-    title: 'Team Standup',
-    date: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 9, 0),
-    endHour: 9, endMin: 30,
-    hour: 9, min: 0,
-    color: 'accent',
-    type: 'meeting',
-  },
-  {
-    id: 'e2',
-    title: 'Deep Work Block',
-    date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 10, 0),
-    endHour: 12, endMin: 0,
-    hour: 10, min: 0,
-    color: 'focus',
-    type: 'focus',
-  },
-  {
-    id: 'e3',
-    title: 'Product Review',
-    date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2, 14, 0),
-    endHour: 15, endMin: 0,
-    hour: 14, min: 0,
-    color: 'accent',
-    type: 'meeting',
-  },
-];
-
-/* ── ML Suggestions ── */
-const SUGGESTIONS = [
-  { id: 's1', title: 'Best time for deep work', time: 'Tomorrow 9–11am', reason: 'Your focus score peaks in morning hours', icon: '🧠' },
-  { id: 's2', title: 'Schedule 1:1 meeting', time: 'Thu 2–3pm', reason: 'Low conflict, high energy window detected', icon: '🤝' },
-  { id: 's3', title: 'Protect lunch break', time: 'Daily 12–1pm', reason: 'You\'ve skipped lunch 4 days this week', icon: '⚡' },
-];
+/* ── No seed events — users start with a blank slate ── */
 
 /* ── EventModal ── */
 function EventModal({ date, onClose, onSave }) {
@@ -277,10 +242,55 @@ export default function CalendarPage({ profile }) {
   const [today] = useState(new Date());
   const [current, setCurrent] = useState(new Date());
   const [view, setView] = useState('month');
-  const [events, setEvents] = useState(SEED_EVENTS);
+  const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [conflict, setConflict] = useState(null); // { reasoning, newEvent, conflicts }
+
+  function handleKeepBoth() {
+    if (!conflict) return;
+    const ev = conflict.newEvent;
+    setEvents(prev => [...prev, {
+      ...ev,
+      endHour: ev.end_hour ?? ev.endHour,
+      endMin:  ev.end_min  ?? ev.endMin,
+    }]);
+    setConflict(null);
+  }
+
+  function handleReplaceExisting() {
+    if (!conflict) return;
+    const idsToRemove = new Set(conflict.conflicts.map(c => c.id));
+    const ev = conflict.newEvent;
+    setEvents(prev => [
+      ...prev.filter(e => !idsToRemove.has(e.id)),
+      { ...ev, endHour: ev.end_hour ?? ev.endHour, endMin: ev.end_min ?? ev.endMin },
+    ]);
+    setConflict(null);
+  }
+
+  function handleCancelNew() {
+    setConflict(null);
+  }
+
+  function handleNudgeAccept(nudge) {
+    // Add the nudged event to today at the suggested hour
+    const hourNum = parseInt(nudge.hour) || 9;
+    const isPm = nudge.hour?.includes('pm') && hourNum !== 12;
+    const h = isPm ? hourNum + 12 : hourNum;
+    const d = new Date();
+    d.setHours(h, 0, 0, 0);
+    setEvents(prev => [...prev, {
+      id: randomId(),
+      title: nudge.title,
+      date: d,
+      hour: h, min: 0,
+      endHour: h + 1, endMin: 0,
+      color: nudge.type === 'focus' ? 'focus' : 'accent',
+      type: nudge.type,
+    }]);
+  }
 
   const year = current.getFullYear();
   const month = current.getMonth();
@@ -308,7 +318,35 @@ export default function CalendarPage({ profile }) {
     setSelectedDate(date);
     setShowModal(true);
   }
-  function handleSaveEvent(ev) {
+  async function handleSaveEvent(ev) {
+    // Check for conflicts via AI before adding
+    try {
+      const res = await fetch('http://localhost:5000/api/ai/conflicts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          new_event: {
+            ...ev,
+            date: ev.date.toISOString(),
+            end_hour: ev.endHour,
+            end_min: ev.endMin,
+          },
+          user_id: profile?.userId || null,
+          profile: profile || {},
+        }),
+      });
+      const data = await res.json();
+      if (data.has_conflict) {
+        setConflict({
+          reasoning: data.reasoning,
+          newEvent: { ...ev, end_hour: ev.endHour, end_min: ev.endMin },
+          conflicts: data.conflicts,
+        });
+        return; // Don't add yet — wait for user decision
+      }
+    } catch {
+      // If conflict check fails, just add the event
+    }
     setEvents(prev => [...prev, ev]);
   }
   function handleEventClick(ev) {
@@ -337,6 +375,12 @@ export default function CalendarPage({ profile }) {
         {/* Mini stats */}
         <div className="sidebar-section">
           <div className="sidebar-label">This Month</div>
+          {events.length === 0 ? (
+            <div className="empty-state-hint">
+              <span>📅</span>
+              <p>Your calendar is empty.<br/>Click a day or <strong>+ New Event</strong> to get started!</p>
+            </div>
+          ) : (
           <div className="stat-row">
             <div className="stat-chip accent">
               <span className="stat-num">{meetingCount}</span>
@@ -347,6 +391,7 @@ export default function CalendarPage({ profile }) {
               <span className="stat-text">Focus Blocks</span>
             </div>
           </div>
+          )}
         </div>
 
         {/* AI Panel */}
@@ -444,6 +489,24 @@ export default function CalendarPage({ profile }) {
           </div>
         </div>
       )}
+
+      {/* Conflict modal */}
+      {conflict && (
+        <ConflictModal
+          reasoning={conflict.reasoning}
+          newEvent={conflict.newEvent}
+          conflicts={conflict.conflicts}
+          onKeepBoth={handleKeepBoth}
+          onReplaceExisting={handleReplaceExisting}
+          onCancelNew={handleCancelNew}
+        />
+      )}
+
+      {/* Pattern nudge toast */}
+      <PatternNudge
+        profile={profile}
+        onAccept={handleNudgeAccept}
+      />
     </div>
   );
 }

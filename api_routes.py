@@ -340,3 +340,110 @@ def get_nudges():
             })
 
     return jsonify({'nudges': nudges[:2], 'enough_data': True})
+
+
+# ── Conflict detection ────────────────────────────────────────────────────────
+
+@ai_bp.route('/conflicts', methods=['POST'])
+def check_conflicts():
+    """
+    Check if a new event conflicts with existing events.
+    Uses Claude to explain conflicts with context and reasoning.
+
+    Body:
+      new_event  { title, date, hour, min, end_hour, end_min, type }
+      user_id    (optional)
+      profile    (optional)
+    """
+    data      = request.get_json() or {}
+    new_event = data.get('new_event', {})
+    user_id   = data.get('user_id')
+    profile   = data.get('profile', {})
+
+    if not new_event:
+        return jsonify({'error': 'new_event is required'}), 400
+
+    # Get existing events
+    events   = _get_user_events(user_id)
+    patterns = PatternEngine(events).analyze()
+
+    # Find overlapping events
+    new_start = new_event.get('hour', 0) * 60 + new_event.get('min', 0)
+    new_end   = new_event.get('end_hour', 0) * 60 + new_event.get('end_min', 0)
+    new_date  = new_event.get('date', '')[:10]
+
+    conflicts = []
+    for ev in events:
+        if ev.get('date', '')[:10] != new_date:
+            continue
+        ev_start = ev.get('hour', 0) * 60 + ev.get('min', 0)
+        ev_end   = ev.get('end_hour', 0) * 60 + ev.get('end_min', 0)
+        # Overlap check: two ranges overlap if start1 < end2 AND start2 < end1
+        if new_start < ev_end and ev_start < new_end:
+            conflicts.append(ev)
+
+    if not conflicts:
+        return jsonify({'conflicts': [], 'has_conflict': False})
+
+    # Build context for Claude
+    def fmt_time(h, m=0):
+        ampm = 'am' if h < 12 else 'pm'
+        hh = h % 12 or 12
+        return f"{hh}:{str(m).zfill(2)}{ampm}"
+
+    conflict_descriptions = []
+    for c in conflicts:
+        conflict_descriptions.append(
+            f"- '{c['title']}' ({c['type']}) at "
+            f"{fmt_time(c.get('hour',0), c.get('min',0))}–"
+            f"{fmt_time(c.get('end_hour',0), c.get('end_min',0))}"
+        )
+
+    new_desc = (
+        f"'{new_event.get('title','New Event')}' ({new_event.get('type','meeting')}) "
+        f"at {fmt_time(new_event.get('hour',0), new_event.get('min',0))}–"
+        f"{fmt_time(new_event.get('end_hour',0), new_event.get('end_min',0))}"
+    )
+
+    preferred_type = patterns.get('preferred_hours', {}).get(
+        conflicts[0].get('type', ''), 'this time'
+    )
+
+    prompt = f"""You are a scheduling assistant. A user is trying to add a new calendar event that conflicts with existing events.
+
+User profile: {profile.get('profile', 'unknown')} | Peak time: {profile.get('peakTime', 'unknown')}
+
+New event they want to add:
+{new_desc}
+
+Conflicts with:
+{chr(10).join(conflict_descriptions)}
+
+Their scheduling patterns show they prefer {conflicts[0].get('type','meetings')} at {preferred_type}.
+
+Write a single conversational sentence (max 20 words) explaining the conflict and asking which takes priority.
+Be specific about what's conflicting. No bullet points, just the sentence.
+Example format: "This meeting overlaps with your usual focus block — which takes priority?"
+"""
+
+    try:
+        message = client.messages.create(
+            model='claude-sonnet-4-20250514',
+            max_tokens=80,
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+        reasoning = message.content[0].text.strip().strip('"')
+    except Exception:
+        # Fallback reasoning without AI
+        conflict = conflicts[0]
+        reasoning = (
+            f"'{new_event.get('title')}' overlaps with your "
+            f"'{conflict.get('title')}' {conflict.get('type')} — which takes priority?"
+        )
+
+    return jsonify({
+        'has_conflict': True,
+        'conflicts':    conflicts,
+        'reasoning':    reasoning,
+        'new_event':    new_event,
+    })
