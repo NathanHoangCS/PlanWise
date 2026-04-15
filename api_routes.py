@@ -292,3 +292,51 @@ def _fallback_suggestions(patterns: dict, profile: dict) -> list:
         })
 
     return suggestions[:3]
+
+
+# ── Pattern nudges ────────────────────────────────────────────────────────────
+
+@ai_bp.route('/nudges', methods=['POST'])
+def get_nudges():
+    """
+    Detects recurring patterns and returns nudge suggestions.
+    e.g. "You usually add a Deep Work block on Mondays — add it again?"
+
+    Body: { user_id, current_day: "Monday" }
+    Only fires when user has 3+ events (enough data to detect patterns).
+    """
+    data       = request.get_json() or {}
+    user_id    = data.get('user_id')
+    current_day = data.get('current_day', '')
+
+    events   = _get_user_events(user_id)
+    patterns = PatternEngine(events).analyze()
+
+    # Need at least 3 events to detect meaningful patterns
+    if patterns['total_events'] < 3:
+        return jsonify({'nudges': [], 'enough_data': False})
+
+    nudges = []
+    preferred_days = patterns.get('preferred_days', {})
+    preferred_hours = patterns.get('preferred_hours', {})
+
+    for event_type, day in preferred_days.items():
+        if day.lower() == current_day.lower():
+            hour = preferred_hours.get(event_type, '9am')
+            # Find a recent event of this type to get the title
+            recent = next(
+                (e for e in reversed(events) if e.get('type') == event_type),
+                None
+            )
+            title = recent['title'] if recent else event_type.capitalize()
+            nudges.append({
+                'id':    f'nudge_{event_type}',
+                'title': title,
+                'type':  event_type,
+                'day':   day,
+                'hour':  hour,
+                'message': f'You usually schedule "{title}" on {day}s at {hour} — add it again?',
+                'icon':  '🧠' if event_type == 'focus' else '🤝' if event_type == 'meeting' else '🎯',
+            })
+
+    return jsonify({'nudges': nudges[:2], 'enough_data': True})
