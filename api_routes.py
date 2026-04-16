@@ -16,7 +16,7 @@ from datetime import datetime
 import anthropic
 from flask import Blueprint, jsonify, request
 from models import Event, User
-from PatternEngine import PatternEngine
+from pattern_engine import PatternEngine
 
 ai_bp = Blueprint('ai', __name__, url_prefix='/api/ai')
 
