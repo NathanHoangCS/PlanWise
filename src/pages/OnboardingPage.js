@@ -63,7 +63,9 @@ export default function OnboardingPage({ onComplete }) {
   const [peakTime, setPeakTime] = useState(null);
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
   const [saving, setSaving]     = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   function togglePriority(id) {
     setPriorities(prev =>
@@ -75,42 +77,49 @@ export default function OnboardingPage({ onComplete }) {
     if (step === 1) return !!profile;
     if (step === 2) return priorities.length > 0;
     if (step === 3) return !!peakTime;
-    if (step === 4) return name.trim().length > 0 && email.trim().length > 0;
+    if (step === 4) return name.trim().length > 0 && email.trim().length > 0 && password.length >= 6;
     return true;
   }
 
   async function handleFinish() {
     setSaving(true);
     try {
-      // Save user profile to backend
-      const res = await fetch('http://localhost:5000/api/users', {
+      // Register user via auth endpoint
+      const res = await fetch('http://localhost:5000/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), email: email.trim() }),
+        body: JSON.stringify({
+          name:       name.trim(),
+          email:      email.trim(),
+          password:   password.trim(),
+          profile,
+          priorities,
+          peak_time:  peakTime,
+        }),
       });
-      const user = await res.json();
+      const data = await res.json();
 
-      // Save onboarding profile to localStorage
-      const profileData = {
-        userId:     user.id,
-        name:       name.trim(),
-        email:      email.trim(),
+      if (!res.ok) {
+        setSaveError(data.error || 'Registration failed');
+        setSaving(false);
+        return;
+      }
+
+      // Save token + profile to localStorage
+      localStorage.setItem('planwise_token', data.token);
+      localStorage.setItem('planwise_profile', JSON.stringify({
+        userId:    data.user.id,
+        name:      data.user.name,
+        email:     data.user.email,
         profile,
         priorities,
         peakTime,
-        setupAt:    new Date().toISOString(),
-        onboarded:  true,
-      };
-      localStorage.setItem('planwise_profile', JSON.stringify(profileData));
-      setStep(5);
-    } catch (err) {
-      // Even if backend fails, save locally and continue
-      localStorage.setItem('planwise_profile', JSON.stringify({
-        name: name.trim(), email: email.trim(),
-        profile, priorities, peakTime,
-        setupAt: new Date().toISOString(), onboarded: true,
+        setupAt:   new Date().toISOString(),
+        onboarded: true,
       }));
       setStep(5);
+    } catch {
+      setSaveError('Could not connect to server — check the backend is running');
     } finally {
       setSaving(false);
     }
@@ -313,7 +322,27 @@ export default function OnboardingPage({ onComplete }) {
                 onChange={e => setEmail(e.target.value)}
               />
             </div>
-            <p className="ob-privacy-note">🔒 Stored locally · Never shared</p>
+            <div className="ob-field">
+              <label>Password</label>
+              <input
+                className="ob-input"
+                type="password"
+                placeholder="At least 6 characters"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+              />
+            </div>
+            {saveError && (
+              <div style={{
+                background: 'rgba(247,106,106,0.1)',
+                border: '1px solid rgba(247,106,106,0.25)',
+                color: '#F76A6A',
+                fontSize: '0.8rem',
+                padding: '10px 14px',
+                borderRadius: '10px',
+              }}>{saveError}</div>
+            )}
+            <p className="ob-privacy-note">🔒 Your password is securely hashed</p>
           </div>
         )}
 
