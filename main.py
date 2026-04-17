@@ -1,21 +1,31 @@
 import os
 from flask import Flask, jsonify
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager
 from models import db
 from api_routes import bp
 from ai_routes import ai_bp
+from auth_routes import auth_bp, bcrypt
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)
+    CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///planwise.db'
+    # ── Config ───────────────────────────────────────────────────────────────
+    app.config['SQLALCHEMY_DATABASE_URI']    = 'sqlite:///planwise.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['JWT_SECRET_KEY']             = os.environ.get('JWT_SECRET', 'planwise-dev-secret-change-in-prod')
+    app.config['JWT_ACCESS_TOKEN_EXPIRES']   = False  # tokens don't expire in dev
 
+    # ── Extensions ───────────────────────────────────────────────────────────
     db.init_app(app)
+    bcrypt.init_app(app)
+    JWTManager(app)
 
+    # ── Blueprints ───────────────────────────────────────────────────────────
     app.register_blueprint(bp)
     app.register_blueprint(ai_bp)
+    app.register_blueprint(auth_bp)
 
     @app.route('/')
     def home():
@@ -27,7 +37,6 @@ def create_app():
 
     with app.app_context():
         db.create_all()
-        # No seeding — users start with a blank slate
 
     return app
 
