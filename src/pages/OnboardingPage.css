@@ -526,3 +526,19 @@
 .ob-done-value { color: #f0eff8; font-weight: 500; }
 
 .ob-done .ob-cta { margin-top: 8px; }
+
+.ob-start-over {
+  background: none;
+  border: none;
+  color: #4a4962;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 8px 0;
+  margin: 0 auto;
+  display: block;
+  transition: color 0.2s;
+  text-align: center;
+}
+
+.ob-start-over:hover { color: #8b8aa0; }

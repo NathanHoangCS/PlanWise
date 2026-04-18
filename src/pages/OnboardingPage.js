@@ -371,6 +371,18 @@ export default function OnboardingPage({ onComplete }) {
             </button>
           )}
         </div>
+        <button className="ob-start-over" onClick={() => {
+          setStep(0);
+          setProfile(null);
+          setPriorities([]);
+          setPeakTime(null);
+          setName('');
+          setEmail('');
+          setPassword('');
+          setSaveError('');
+        }}>
+          ↩ Start over
+        </button>
       </div>
     </div>
   );
