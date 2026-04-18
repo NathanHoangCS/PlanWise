@@ -40,6 +40,10 @@ function AppShell() {
   }
 
   function handleOnboardingComplete(data) {
+    if (data?.goToLogin) {
+      setAuthState('login');
+      return;
+    }
     const saved = localStorage.getItem('planwise_profile');
     if (saved) setProfile(JSON.parse(saved));
     setAuthState('app');

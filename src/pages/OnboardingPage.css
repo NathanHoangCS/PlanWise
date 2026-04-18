@@ -542,3 +542,21 @@
 }
 
 .ob-start-over:hover { color: #8b8aa0; }
+
+.ob-to-login {
+  background: none;
+  border: none;
+  color: #7C6AF7;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 4px 0;
+  margin: 0 auto;
+  display: block;
+  transition: color 0.2s;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ob-to-login:hover { color: #8d7df9; }

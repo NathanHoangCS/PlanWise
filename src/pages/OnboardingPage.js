@@ -383,6 +383,9 @@ export default function OnboardingPage({ onComplete }) {
         }}>
           ↩ Start over
         </button>
+        <button className="ob-to-login" onClick={() => onComplete({ goToLogin: true })}>
+          Already have an account? Sign in
+        </button>
       </div>
     </div>
   );
