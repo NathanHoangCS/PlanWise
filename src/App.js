@@ -1,41 +1,71 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import './App.css';
+import LoginPage from './pages/LoginPage';
 import OnboardingPage from './pages/OnboardingPage';
 import HomePage from './pages/HomePage';
 import CalendarPage from './pages/CalendarPage';
 import UsersPage from './pages/UsersPage';
 
 function AppShell() {
-  const [profile, setProfile] = useState(null);
-  const [checking, setChecking] = useState(true);
+  const [profile, setProfile]   = useState(null);
+  const [authState, setAuthState] = useState('checking'); // checking | login | onboarding | app
   const navigate = useNavigate();
 
   useEffect(() => {
-    const saved = localStorage.getItem('planwise_profile');
-    if (saved) {
-      try { setProfile(JSON.parse(saved)); } catch {}
+    const token   = localStorage.getItem('planwise_token');
+    const saved   = localStorage.getItem('planwise_profile');
+
+    if (token && saved) {
+      try {
+        setProfile(JSON.parse(saved));
+        setAuthState('app');
+      } catch {
+        setAuthState('login');
+      }
+    } else if (saved) {
+      // Had onboarding but no token — send to login
+      setAuthState('login');
+    } else {
+      // Brand new user — onboarding
+      setAuthState('onboarding');
     }
-    setChecking(false);
   }, []);
+
+  function handleLogin(user) {
+    const saved = localStorage.getItem('planwise_profile');
+    if (saved) setProfile(JSON.parse(saved));
+    setAuthState('app');
+    navigate('/');
+  }
 
   function handleOnboardingComplete(data) {
     const saved = localStorage.getItem('planwise_profile');
     if (saved) setProfile(JSON.parse(saved));
-    else setProfile(data);
+    setAuthState('app');
     navigate('/');
   }
 
-  if (checking) return null;
-
-  if (!profile) {
-    return <OnboardingPage onComplete={handleOnboardingComplete} />;
+  function handleLogout() {
+    localStorage.removeItem('planwise_token');
+    localStorage.removeItem('planwise_profile');
+    setProfile(null);
+    setAuthState('login');
   }
 
-  const firstName = profile.name?.split(' ')[0] || 'there';
-  const profileEmoji = {
-    student: '🎓', professional: '💼', freelancer: '🚀', balanced: '⚖️'
-  }[profile.profile] || '👋';
+  if (authState === 'checking') return null;
+  if (authState === 'onboarding') return (
+    <OnboardingPage onComplete={handleOnboardingComplete} />
+  );
+  if (authState === 'login') return (
+    <LoginPage
+      onLogin={handleLogin}
+      onSignUp={() => setAuthState('onboarding')}
+    />
+  );
+
+  const firstName    = profile?.name?.split(' ')[0] || 'there';
+  const profileEmoji = { student: '🎓', professional: '💼', freelancer: '🚀', balanced: '⚖️' }[profile?.profile] || '👋';
 
   return (
     <div className="App">
@@ -58,10 +88,7 @@ function AppShell() {
           <div className="header-profile">
             <span>{profileEmoji}</span>
             <span className="header-name">{firstName}</span>
-            <button className="header-reset" onClick={() => {
-              localStorage.removeItem('planwise_profile');
-              setProfile(null);
-            }}>↩</button>
+            <button className="header-reset" onClick={handleLogout} title="Sign out">↩</button>
           </div>
         </div>
       </header>
