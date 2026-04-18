@@ -8,9 +8,20 @@ import CalendarPage from './pages/CalendarPage';
 import UsersPage from './pages/UsersPage';
 
 function AppShell() {
-  const [profile, setProfile]   = useState(null);
-  const [authState, setAuthState] = useState('checking'); // checking | login | onboarding | app
+  const [profile, setProfile]     = useState(null);
+  const [authState, setAuthState] = useState('checking');
+  const [theme, setTheme]         = useState(() => localStorage.getItem('planwise_theme') || 'dark');
   const navigate = useNavigate();
+
+  // Apply theme to <html> element
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('planwise_theme', theme);
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme(t => t === 'dark' ? 'light' : 'dark');
+  }
 
   useEffect(() => {
     const token   = localStorage.getItem('planwise_token');
@@ -90,6 +101,9 @@ function AppShell() {
             <NavLink to="/users" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Team</NavLink>
           </nav>
           <div className="header-profile">
+            <button className="theme-toggle" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
             <span>{profileEmoji}</span>
             <span className="header-name">{firstName}</span>
             <button className="header-reset" onClick={handleLogout} title="Sign out">↩</button>
