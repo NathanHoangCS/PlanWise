@@ -7,7 +7,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0a0a0f;
+  background: var(--bg);
   font-family: 'Outfit', sans-serif;
   color: #f0eff8;
   overflow: hidden;
