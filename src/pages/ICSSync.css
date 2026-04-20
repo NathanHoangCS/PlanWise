@@ -1,0 +1,190 @@
+.ics-sync {
+    position: relative;
+  }
+  
+  .ics-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .ics-toggle-btn:hover {
+    background: var(--surface-3);
+    border-color: var(--border-hover);
+    color: var(--text-primary);
+  }
+  
+  /* Dropdown */
+  .ics-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 320px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow), 0 0 40px rgba(0,0,0,0.3);
+    z-index: 200;
+    animation: icsDropIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+  }
+  
+  @keyframes icsDropIn {
+    from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+  }
+  
+  .ics-dropdown-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  
+  .ics-dropdown-header button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+  
+  .ics-dropdown-header button:hover {
+    background: var(--surface-2);
+    color: var(--text-primary);
+  }
+  
+  /* Options */
+  .ics-options {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .ics-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    width: 100%;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text-primary);
+  }
+  
+  .ics-option:hover {
+    background: var(--surface-2);
+    border-color: var(--border);
+  }
+  
+  .ics-option:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .ics-option-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+  .ics-option-body { min-width: 0; }
+  
+  .ics-option-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+  }
+  
+  .ics-option-desc {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+  
+  /* Result */
+  .ics-result {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0 8px 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+  
+  .ics-result.import {
+    background: rgba(106,247,162,0.1);
+    border: 1px solid rgba(106,247,162,0.2);
+    color: var(--success);
+  }
+  
+  .ics-result.export {
+    background: var(--accent-dim);
+    border: 1px solid rgba(124,106,247,0.2);
+    color: var(--accent);
+  }
+  
+  /* Error */
+  .ics-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0 8px 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    background: rgba(247,106,106,0.1);
+    border: 1px solid rgba(247,106,106,0.2);
+    color: var(--danger);
+    line-height: 1.5;
+  }
+  
+  /* Instructions */
+  .ics-instructions {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  
+  .ics-instructions-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+  
+  .ics-instructions ol {
+    padding-left: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .ics-instructions li {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }

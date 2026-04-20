@@ -1,8 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './CalendarPage.css';
 import AIPanel from './AIPanel';
 import PatternNudge from './PatternNudge';
 import ConflictModal from './ConflictModal';
+import ICSSync from './ICSSync';
+
+const API = 'http://localhost:5000';
+
+function authHeaders() {
+  const token = localStorage.getItem('planwise_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+/* helper: convert DB event (snake_case) → frontend event (camelCase + Date) */
+function dbToFrontend(ev) {
+  return {
+    id:       ev.id,
+    title:    ev.title,
+    type:     ev.type,
+    color:    ev.color,
+    date:     new Date(ev.date),
+    hour:     ev.hour,
+    min:      ev.min,
+    endHour:  ev.end_hour,
+    endMin:   ev.end_min,
+    priority: ev.priority,
+    user_id:  ev.user_id,
+  };
+}
 
 /* ── Helpers ── */
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -179,8 +207,80 @@ function MonthView({ year, month, events, today, onDayClick, onEventClick }) {
   );
 }
 
-/* ── WeekView ── */
-function WeekView({ weekDates, events, today, onSlotClick, onEventClick }) {
+/* ── WeekView with drag and drop ── */
+function WeekView({ weekDates, events, today, onSlotClick, onEventClick, onEventDrop }) {
+  const [dragging, setDragging]       = useState(null); // { ev, offsetY }
+  const [dropTarget, setDropTarget]   = useState(null); // { date, hour }
+  const [ghost, setGhost]             = useState(null); // { top, dayIndex }
+  const bodyRef                       = React.useRef(null);
+
+  const SLOT_H  = 56;   // px per hour
+  const GUTTER  = 56;   // px for time gutter
+  const START_H = 7;    // first hour shown
+
+  function handleDragStart(e, ev) {
+    e.stopPropagation();
+    const rect   = e.currentTarget.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top;
+    setDragging({ ev, offsetY });
+    // Hide default drag ghost
+    const blank = document.createElement('div');
+    blank.style.opacity = '0';
+    document.body.appendChild(blank);
+    e.dataTransfer.setDragImage(blank, 0, 0);
+    setTimeout(() => document.body.removeChild(blank), 0);
+  }
+
+  function handleBodyDragOver(e) {
+    e.preventDefault();
+    if (!dragging || !bodyRef.current) return;
+    const bodyRect = bodyRef.current.getBoundingClientRect();
+    const colWidth = (bodyRect.width - GUTTER) / weekDates.length;
+    const x        = e.clientX - bodyRect.left - GUTTER;
+    const y        = e.clientY - bodyRect.top + bodyRef.current.scrollTop;
+
+    const dayIndex = Math.max(0, Math.min(weekDates.length - 1, Math.floor(x / colWidth)));
+    const rawHour  = y / SLOT_H + START_H - dragging.offsetY / SLOT_H;
+    const hour     = Math.max(START_H, Math.min(20, Math.round(rawHour * 2) / 2));
+    const snapHour = Math.floor(hour);
+    const snapMin  = hour % 1 === 0.5 ? 30 : 0;
+
+    setDropTarget({ date: weekDates[dayIndex], hour: snapHour, min: snapMin, dayIndex });
+    setGhost({
+      top:      (hour - START_H) * SLOT_H,
+      dayIndex,
+      height:   Math.max(((dragging.ev.endHour + dragging.ev.endMin / 60) -
+                          (dragging.ev.hour    + dragging.ev.min    / 60)) * SLOT_H, 28),
+    });
+  }
+
+  function handleBodyDrop(e) {
+    e.preventDefault();
+    if (!dragging || !dropTarget) { resetDrag(); return; }
+    const ev      = dragging.ev;
+    const duration = (ev.endHour + ev.endMin / 60) - (ev.hour + ev.min / 60);
+    const newStart = dropTarget.hour + dropTarget.min / 60;
+    const newEnd   = newStart + duration;
+    const newDate  = new Date(dropTarget.date);
+    newDate.setHours(dropTarget.hour, dropTarget.min, 0, 0);
+
+    onEventDrop({
+      ...ev,
+      date:     newDate,
+      hour:     dropTarget.hour,
+      min:      dropTarget.min,
+      endHour:  Math.floor(newEnd),
+      endMin:   Math.round((newEnd % 1) * 60),
+    });
+    resetDrag();
+  }
+
+  function resetDrag() {
+    setDragging(null);
+    setDropTarget(null);
+    setGhost(null);
+  }
+
   return (
     <div className="week-view">
       <div className="week-header">
@@ -192,38 +292,63 @@ function WeekView({ weekDates, events, today, onSlotClick, onEventClick }) {
           </div>
         ))}
       </div>
-      <div className="week-body">
+      <div
+        className="week-body"
+        ref={bodyRef}
+        onDragOver={handleBodyDragOver}
+        onDrop={handleBodyDrop}
+        onDragLeave={e => { if (!bodyRef.current?.contains(e.relatedTarget)) resetDrag(); }}
+      >
         <div className="week-time-col">
           {HOURS.map(h => (
             <div key={h} className="week-time-slot">{formatTime(h)}</div>
           ))}
         </div>
-        {weekDates.map(d => {
+        {weekDates.map((d, dayIndex) => {
           const dayEvents = events.filter(e => isSameDay(e.date, d));
+          const isDropDay = dropTarget?.dayIndex === dayIndex;
           return (
-            <div key={d.toISOString()} className="week-day-col">
+            <div
+              key={d.toISOString()}
+              className={`week-day-col ${isDropDay ? 'drop-active' : ''}`}
+            >
               {HOURS.map(h => (
                 <div
                   key={h}
-                  className="week-hour-cell"
+                  className={`week-hour-cell ${isDropDay && dropTarget?.hour === h ? 'drop-highlight' : ''}`}
                   onClick={() => {
+                    if (dragging) return;
                     const slot = new Date(d);
                     slot.setHours(h, 0, 0, 0);
                     onSlotClick(slot);
                   }}
                 />
               ))}
+              {/* Drop ghost */}
+              {ghost && isDropDay && dragging && (
+                <div
+                  className={`week-event ${dragging.ev.color} drag-ghost`}
+                  style={{ top: `${ghost.top}px`, height: `${ghost.height}px` }}
+                >
+                  <span className="week-event-title">{dragging.ev.title}</span>
+                </div>
+              )}
               {dayEvents.map(ev => {
-                const top = ((ev.hour - 7) + ev.min / 60) * 56;
+                const top      = ((ev.hour - 7) + ev.min / 60) * 56;
                 const duration = ((ev.endHour + ev.endMin / 60) - (ev.hour + ev.min / 60));
-                const height = Math.max(duration * 56, 28);
+                const height   = Math.max(duration * 56, 28);
+                const isDragging = dragging?.ev.id === ev.id;
                 return (
                   <div
                     key={ev.id}
-                    className={`week-event ${ev.color}`}
+                    className={`week-event ${ev.color} ${isDragging ? 'is-dragging' : ''}`}
                     style={{ top: `${top}px`, height: `${height}px` }}
-                    onClick={e => { e.stopPropagation(); onEventClick(ev); }}
+                    draggable
+                    onDragStart={e => handleDragStart(e, ev)}
+                    onDragEnd={resetDrag}
+                    onClick={e => { if (!dragging) { e.stopPropagation(); onEventClick(ev); } }}
                   >
+                    <span className="week-event-drag-handle">⠿</span>
                     <span className="week-event-title">{ev.title}</span>
                     <span className="week-event-time">{formatTime(ev.hour, ev.min)}–{formatTime(ev.endHour, ev.endMin)}</span>
                   </div>
@@ -243,29 +368,83 @@ export default function CalendarPage({ profile }) {
   const [current, setCurrent] = useState(new Date());
   const [view, setView] = useState('month');
   const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [conflict, setConflict] = useState(null); // { reasoning, newEvent, conflicts }
+  const [conflict, setConflict] = useState(null);
 
-  function handleKeepBoth() {
+  // ── Load events from DB on mount ─────────────────────────────────────────
+  const loadEvents = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/api/events`, { headers: authHeaders() });
+      const data = await res.json();
+      // Filter to current user's events only
+      const userId = profile?.userId;
+      const filtered = userId
+        ? data.filter(e => e.user_id === userId)
+        : data;
+      setEvents(filtered.map(dbToFrontend));
+    } catch {
+      // If backend is down, start with empty calendar
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [profile?.userId]);
+
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
+
+  async function persistEvent(ev) {
+    try {
+      const res = await fetch(`${API}/api/events`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          title:    ev.title,
+          type:     ev.type,
+          date:     ev.date instanceof Date ? ev.date.toISOString() : ev.date,
+          hour:     ev.hour,
+          min:      ev.min,
+          end_hour: ev.endHour ?? ev.end_hour,
+          end_min:  ev.endMin  ?? ev.end_min,
+          priority: ev.priority || 3,
+          user_id:  profile?.userId || null,
+        }),
+      });
+      const saved = await res.json();
+      return dbToFrontend(saved);
+    } catch {
+      return ev; // fallback: use local event if API fails
+    }
+  }
+
+  async function handleKeepBoth() {
     if (!conflict) return;
-    const ev = conflict.newEvent;
-    setEvents(prev => [...prev, {
-      ...ev,
-      endHour: ev.end_hour ?? ev.endHour,
-      endMin:  ev.end_min  ?? ev.endMin,
-    }]);
+    const saved = await persistEvent(conflict.newEvent);
+    setEvents(prev => [...prev, saved]);
     setConflict(null);
   }
 
-  function handleReplaceExisting() {
+  async function handleReplaceExisting() {
     if (!conflict) return;
     const idsToRemove = new Set(conflict.conflicts.map(c => c.id));
-    const ev = conflict.newEvent;
+    // Delete conflicting events from DB
+    for (const id of idsToRemove) {
+      try {
+        await fetch(`${API}/api/events/${id}`, {
+          method: 'DELETE',
+          headers: authHeaders(),
+        });
+      } catch {}
+    }
+    const saved = await persistEvent(conflict.newEvent);
     setEvents(prev => [
       ...prev.filter(e => !idsToRemove.has(e.id)),
-      { ...ev, endHour: ev.end_hour ?? ev.endHour, endMin: ev.end_min ?? ev.endMin },
+      saved,
     ]);
     setConflict(null);
   }
@@ -274,22 +453,21 @@ export default function CalendarPage({ profile }) {
     setConflict(null);
   }
 
-  function handleNudgeAccept(nudge) {
-    // Add the nudged event to today at the suggested hour
+  async function handleNudgeAccept(nudge) {
     const hourNum = parseInt(nudge.hour) || 9;
     const isPm = nudge.hour?.includes('pm') && hourNum !== 12;
     const h = isPm ? hourNum + 12 : hourNum;
     const d = new Date();
     d.setHours(h, 0, 0, 0);
-    setEvents(prev => [...prev, {
-      id: randomId(),
-      title: nudge.title,
-      date: d,
-      hour: h, min: 0,
+    const ev = {
+      id: randomId(), title: nudge.title,
+      date: d, hour: h, min: 0,
       endHour: h + 1, endMin: 0,
       color: nudge.type === 'focus' ? 'focus' : 'accent',
       type: nudge.type,
-    }]);
+    };
+    const saved = await persistEvent(ev);
+    setEvents(prev => [...prev, saved]);
   }
 
   const year = current.getFullYear();
@@ -321,15 +499,15 @@ export default function CalendarPage({ profile }) {
   async function handleSaveEvent(ev) {
     // Check for conflicts via AI before adding
     try {
-      const res = await fetch('http://localhost:5000/api/ai/conflicts', {
+      const res = await fetch(`${API}/api/ai/conflicts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           new_event: {
             ...ev,
-            date: ev.date.toISOString(),
+            date:     ev.date.toISOString(),
             end_hour: ev.endHour,
-            end_min: ev.endMin,
+            end_min:  ev.endMin,
           },
           user_id: profile?.userId || null,
           profile: profile || {},
@@ -339,20 +517,47 @@ export default function CalendarPage({ profile }) {
       if (data.has_conflict) {
         setConflict({
           reasoning: data.reasoning,
-          newEvent: { ...ev, end_hour: ev.endHour, end_min: ev.endMin },
+          newEvent:  { ...ev, end_hour: ev.endHour, end_min: ev.endMin },
           conflicts: data.conflicts,
         });
-        return; // Don't add yet — wait for user decision
+        return;
       }
-    } catch {
-      // If conflict check fails, just add the event
-    }
-    setEvents(prev => [...prev, ev]);
+    } catch {}
+    // No conflict — persist to DB then update UI
+    const saved = await persistEvent(ev);
+    setEvents(prev => [...prev, saved]);
   }
   function handleEventClick(ev) {
     setSelectedEvent(ev);
   }
-  function handleDeleteEvent(id) {
+  async function handleEventDrop(updatedEv) {
+    // Optimistically update UI
+    setEvents(prev => prev.map(e => e.id === updatedEv.id ? updatedEv : e));
+    // Persist to DB
+    try {
+      await fetch(`${API}/api/events/${updatedEv.id}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          date:     updatedEv.date.toISOString(),
+          hour:     updatedEv.hour,
+          min:      updatedEv.min,
+          end_hour: updatedEv.endHour,
+          end_min:  updatedEv.endMin,
+        }),
+      });
+    } catch {
+      loadEvents();
+    }
+  }
+
+  async function handleDeleteEvent(id) {
+    try {
+      await fetch(`${API}/api/events/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+    } catch {}
     setEvents(prev => prev.filter(e => e.id !== id));
     setSelectedEvent(null);
   }
@@ -397,19 +602,20 @@ export default function CalendarPage({ profile }) {
         {/* AI Panel */}
         <AIPanel
           profile={profile}
-          onEventParsed={(parsed) => {
-            const d = new Date(parsed.date);
-            setEvents(prev => [...prev, {
+          onEventParsed={async (parsed) => {
+            const ev = {
               id: randomId(),
-              title: parsed.title,
-              date: d,
-              hour: parsed.hour,
-              min: parsed.min,
-              endHour: parsed.end_hour,
-              endMin: parsed.end_min,
-              color: parsed.type === 'focus' ? 'focus' : 'accent',
-              type: parsed.type,
-            }]);
+              title:    parsed.title,
+              date:     new Date(parsed.date),
+              hour:     parsed.hour,
+              min:      parsed.min,
+              endHour:  parsed.end_hour,
+              endMin:   parsed.end_min,
+              color:    parsed.type === 'focus' ? 'focus' : 'accent',
+              type:     parsed.type,
+            };
+            const saved = await persistEvent(ev);
+            setEvents(prev => [...prev, saved]);
           }}
         />
       </aside>
@@ -430,11 +636,35 @@ export default function CalendarPage({ profile }) {
             <button className={view === 'month' ? 'active' : ''} onClick={() => setView('month')}>Month</button>
             <button className={view === 'week' ? 'active' : ''} onClick={() => setView('week')}>Week</button>
           </div>
+          <ICSSync
+            profile={profile}
+            onImport={imported => {
+              const frontendEvents = imported.map(ev => ({
+                id:      ev.id,
+                title:   ev.title,
+                type:    ev.type,
+                color:   ev.color,
+                date:    new Date(ev.date),
+                hour:    ev.hour,
+                min:     ev.min,
+                endHour: ev.end_hour,
+                endMin:  ev.end_min,
+              }));
+              setEvents(prev => [...prev, ...frontendEvents]);
+            }}
+          />
         </div>
 
         {/* Calendar body */}
         <div className="cal-body">
-          {view === 'month' ? (
+          {loading ? (
+            <div className="cal-loading">
+              <div className="cal-loading-dots">
+                <span /><span /><span />
+              </div>
+              <span>Loading your calendar…</span>
+            </div>
+          ) : view === 'month' ? (
             <MonthView
               year={year} month={month}
               events={events} today={today}
@@ -447,6 +677,7 @@ export default function CalendarPage({ profile }) {
               events={events} today={today}
               onSlotClick={handleSlotClick}
               onEventClick={handleEventClick}
+              onEventDrop={handleEventDrop}
             />
           )}
         </div>
