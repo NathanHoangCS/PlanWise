@@ -160,3 +160,22 @@
   color: #f0eff8;
   background: rgba(124,106,247,0.06);
 }
+
+/* ── Mobile responsive ── */
+@media (max-width: 768px) {
+  .login-screen {
+    align-items: flex-end;
+    padding-bottom: 0;
+  }
+
+  .login-card {
+    border-radius: 20px 20px 0 0;
+    padding: 32px 24px 40px;
+    animation: loginSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes loginSlideUp {
+    from { opacity: 0; transform: translateY(40px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}
