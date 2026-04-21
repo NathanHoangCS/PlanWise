@@ -1,4 +1,4 @@
-]/* ── Layout ── */
+/* ── Layout ── */
 .calendar-page {
   display: flex;
   gap: 24px;
@@ -151,3 +151,215 @@
 
 .empty-state-hint span { font-size: 1.5rem; }
 .empty-state-hint strong { color: var(--accent); }
+
+/* ── Calendar loading state ── */
+.cal-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 300px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.cal-loading-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.cal-loading-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: dotPulse 1.2s ease infinite;
+}
+
+.cal-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.cal-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1); }
+}
+
+/* ── Drag and drop ── */
+.week-event {
+  cursor: grab;
+}
+
+.week-event:active {
+  cursor: grabbing;
+}
+
+.week-event-drag-handle {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.3);
+  margin-right: 4px;
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.week-event.is-dragging {
+  opacity: 0.35;
+  transform: scale(0.98);
+}
+
+.week-event.drag-ghost {
+  opacity: 0.75;
+  border: 2px dashed rgba(255,255,255,0.4);
+  pointer-events: none;
+  z-index: 20;
+  animation: none;
+}
+
+.week-day-col.drop-active {
+  background: rgba(124,106,247,0.03);
+}
+
+.week-hour-cell.drop-highlight {
+  background: rgba(124,106,247,0.1);
+  border-top: 2px solid var(--accent);
+}
+
+/* snap line indicator */
+.week-day-col.drop-active .week-hour-cell.drop-highlight::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 2px;
+  background: var(--accent);
+  z-index: 15;
+}
+
+/* ── Mobile responsive ── */
+@media (max-width: 768px) {
+
+  /* Stack sidebar below calendar on mobile */
+  .calendar-page {
+    flex-direction: column;
+    gap: 16px;
+    min-height: unset;
+  }
+
+  /* Sidebar becomes a horizontal strip on mobile */
+  .cal-sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
+    order: 2; /* show below calendar */
+  }
+
+  .sidebar-section {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  /* Hide AI panel on mobile to save space — accessible via separate tab */
+  .cal-sidebar > .ai-panel {
+    display: none;
+  }
+
+  /* Toolbar stacks on mobile */
+  .cal-toolbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .toolbar-left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cal-title {
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ics-sync { display: none; } /* hide sync on mobile */
+
+  /* Month view — smaller cells */
+  .month-cell {
+    min-height: 64px;
+    padding: 4px;
+  }
+
+  .month-day-num {
+    font-size: 0.72rem;
+  }
+
+  .month-event-chip {
+    font-size: 0.6rem;
+    padding: 1px 4px;
+  }
+
+  .month-day-label {
+    font-size: 0.6rem;
+    padding: 6px 4px;
+  }
+
+  /* Week view — scrollable horizontally */
+  .week-view {
+    overflow-x: auto;
+  }
+
+  .week-header,
+  .week-body {
+    min-width: 560px;
+  }
+
+  /* Stats row stacks */
+  .stat-row {
+    flex-direction: row;
+  }
+
+  .stat-num { font-size: 1.2rem; }
+
+  /* Modals full screen on mobile */
+  .modal {
+    width: calc(100vw - 32px);
+    max-width: 400px;
+  }
+
+  .modal-time-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .time-arrow { display: none; }
+
+  /* Pattern nudge — full width at bottom */
+  .pattern-nudge {
+    left: 16px;
+    right: 16px;
+    bottom: 76px; /* above mobile nav */
+    max-width: unset;
+  }
+
+  /* Conflict modal */
+  .conflict-modal {
+    width: calc(100vw - 32px);
+    padding: 20px 16px 16px;
+  }
+
+  .conflict-comparison {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .conflict-vs { text-align: center; }
+}
+
+/* Extra small screens */
+@media (max-width: 380px) {
+  .month-cell { min-height: 52px; }
+  .view-switcher button { padding: 5px 10px; font-size: 0.75rem; }
+  .btn-today { padding: 6px 10px; font-size: 0.75rem; }
+}

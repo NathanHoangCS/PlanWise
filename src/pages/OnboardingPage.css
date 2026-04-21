@@ -560,3 +560,35 @@
 }
 
 .ob-to-login:hover { color: #8d7df9; }
+
+/* ── Mobile responsive ── */
+@media (max-width: 768px) {
+  .ob-welcome {
+    flex-direction: column;
+    padding: 24px 20px;
+    gap: 32px;
+  }
+
+  .ob-welcome-visual { display: none; }
+
+  .ob-welcome-heading { font-size: 2.4rem; }
+
+  .ob-step-content {
+    padding: 48px 20px 32px;
+  }
+
+  .ob-step-title { font-size: 1.8rem; }
+
+  .ob-grid-2 {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .ob-cta { width: 100%; text-align: center; padding: 14px; }
+
+  .ob-done-content { padding: 16px; }
+}
+
+@media (max-width: 380px) {
+  .ob-grid-2 { grid-template-columns: 1fr; }
+}
