@@ -117,6 +117,25 @@ function AppShell() {
           <Route path="/users" element={<UsersPage />} />
         </Routes>
       </main>
+      {/* Mobile bottom nav */}
+      <nav className="mobile-nav">
+        <NavLink to="/" end className={({ isActive }) => isActive ? 'mobile-nav-item active' : 'mobile-nav-item'}>
+          <span>🏠</span>
+          <span>Home</span>
+        </NavLink>
+        <NavLink to="/calendar" className={({ isActive }) => isActive ? 'mobile-nav-item active' : 'mobile-nav-item'}>
+          <span>📅</span>
+          <span>Calendar</span>
+        </NavLink>
+        <NavLink to="/users" className={({ isActive }) => isActive ? 'mobile-nav-item active' : 'mobile-nav-item'}>
+          <span>👥</span>
+          <span>Team</span>
+        </NavLink>
+        <button className="mobile-nav-item" onClick={handleLogout}>
+          <span>↩</span>
+          <span>Sign out</span>
+        </button>
+      </nav>
     </div>
   );
 }
