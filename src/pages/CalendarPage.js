@@ -159,6 +159,139 @@ function EventModal({ date, onClose, onSave }) {
   );
 }
 
+/* ── EditEventModal ── */
+function EditEventModal({ event, onClose, onSave, onDelete }) {
+  const [title,    setTitle]    = useState(event.title);
+  const [type,     setType]     = useState(event.type);
+  const [hour,     setHour]     = useState(event.hour);
+  const [min,      setMin]      = useState(event.min);
+  const [endHour,  setEndHour]  = useState(event.endHour);
+  const [endMin,   setEndMin]   = useState(event.endMin);
+  const [priority, setPriority] = useState(event.priority || 3);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  function handleSave() {
+    if (!title.trim()) return;
+    const updated = new Date(event.date);
+    updated.setHours(hour, min, 0, 0);
+    onSave({
+      ...event,
+      title:    title.trim(),
+      type,
+      color:    type === 'focus' ? 'focus' : 'accent',
+      date:     updated,
+      hour, min, endHour, endMin, priority,
+    });
+  }
+
+  const dateStr = event.date.toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric'
+  });
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal edit-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Edit Event</h3>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          {/* Title */}
+          <input
+            className="modal-input"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Event title…"
+            autoFocus
+          />
+
+          {/* Type */}
+          <div className="modal-type-row">
+            {['meeting', 'focus', 'personal'].map(t => (
+              <button
+                key={t}
+                className={`type-btn ${type === t ? 'active' : ''}`}
+                onClick={() => setType(t)}
+              >
+                {t === 'meeting' ? '🤝' : t === 'focus' ? '🧠' : '🎯'} {t}
+              </button>
+            ))}
+          </div>
+
+          {/* Date (read-only display) */}
+          <div className="edit-date-row">
+            <span>📅</span>
+            <span className="edit-date-label">{dateStr}</span>
+          </div>
+
+          {/* Time */}
+          <div className="modal-time-row">
+            <div className="time-group">
+              <label>Start</label>
+              <div className="time-selects">
+                <select value={hour} onChange={e => setHour(+e.target.value)}>
+                  {HOURS.map(h => <option key={h} value={h}>{formatTime(h)}</option>)}
+                </select>
+                <select value={min} onChange={e => setMin(+e.target.value)}>
+                  {[0,15,30,45].map(m => <option key={m} value={m}>{String(m).padStart(2,'0')}</option>)}
+                </select>
+              </div>
+            </div>
+            <span className="time-arrow">→</span>
+            <div className="time-group">
+              <label>End</label>
+              <div className="time-selects">
+                <select value={endHour} onChange={e => setEndHour(+e.target.value)}>
+                  {HOURS.map(h => <option key={h} value={h}>{formatTime(h)}</option>)}
+                </select>
+                <select value={endMin} onChange={e => setEndMin(+e.target.value)}>
+                  {[0,15,30,45].map(m => <option key={m} value={m}>{String(m).padStart(2,'0')}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Priority */}
+          <div className="edit-priority-row">
+            <label className="edit-priority-label">Priority</label>
+            <div className="edit-priority-btns">
+              {[
+                { val: 1, label: '🔴 High' },
+                { val: 2, label: '🟡 Medium' },
+                { val: 3, label: '🟢 Low' },
+              ].map(p => (
+                <button
+                  key={p.val}
+                  className={`priority-btn ${priority === p.val ? 'active' : ''}`}
+                  onClick={() => setPriority(p.val)}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          {confirmDelete ? (
+            <>
+              <span className="delete-confirm-text">Are you sure?</span>
+              <button className="btn-danger" onClick={onDelete}>Yes, delete</button>
+              <button className="btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
+            </>
+          ) : (
+            <>
+              <button className="btn-danger-ghost" onClick={() => setConfirmDelete(true)}>Delete</button>
+              <button className="btn-ghost" onClick={onClose}>Cancel</button>
+              <button className="btn-primary" onClick={handleSave} disabled={!title.trim()}>Save changes</button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── MonthView ── */
 function MonthView({ year, month, events, today, onDayClick, onEventClick }) {
   const totalDays = daysInMonth(year, month);
@@ -551,6 +684,31 @@ export default function CalendarPage({ profile }) {
     }
   }
 
+  async function handleUpdateEvent(updatedEv) {
+    // Optimistically update UI
+    setEvents(prev => prev.map(e => e.id === updatedEv.id ? updatedEv : e));
+    setSelectedEvent(null);
+    // Persist to DB
+    try {
+      await fetch(`${API}/api/events/${updatedEv.id}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          title:    updatedEv.title,
+          type:     updatedEv.type,
+          date:     updatedEv.date.toISOString(),
+          hour:     updatedEv.hour,
+          min:      updatedEv.min,
+          end_hour: updatedEv.endHour,
+          end_min:  updatedEv.endMin,
+          priority: updatedEv.priority || 3,
+        }),
+      });
+    } catch {
+      loadEvents(); // reload if save fails
+    }
+  }
+
   async function handleDeleteEvent(id) {
     try {
       await fetch(`${API}/api/events/${id}`, {
@@ -693,32 +851,12 @@ export default function CalendarPage({ profile }) {
       )}
 
       {selectedEvent && (
-        <div className="modal-overlay" onClick={() => setSelectedEvent(null)}>
-          <div className="modal event-detail-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{selectedEvent.title}</h3>
-              <button className="modal-close" onClick={() => setSelectedEvent(null)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="event-detail-row">
-                <span>🕐</span>
-                <span>{formatTime(selectedEvent.hour, selectedEvent.min)} – {formatTime(selectedEvent.endHour, selectedEvent.endMin)}</span>
-              </div>
-              <div className="event-detail-row">
-                <span>📅</span>
-                <span>{selectedEvent.date.toDateString()}</span>
-              </div>
-              <div className="event-detail-row">
-                <span>{selectedEvent.type === 'focus' ? '🧠' : '🤝'}</span>
-                <span className={`type-tag ${selectedEvent.color}`}>{selectedEvent.type}</span>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-danger" onClick={() => handleDeleteEvent(selectedEvent.id)}>Delete</button>
-              <button className="btn-ghost" onClick={() => setSelectedEvent(null)}>Close</button>
-            </div>
-          </div>
-        </div>
+        <EditEventModal
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onSave={handleUpdateEvent}
+          onDelete={() => handleDeleteEvent(selectedEvent.id)}
+        />
       )}
 
       {/* Conflict modal */}
