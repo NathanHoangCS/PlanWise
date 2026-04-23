@@ -5,12 +5,14 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
 from models import db, Event, User
 from data_structures import EventHashMap, EventMinHeap
+from trie_search import TrieSearch
 
 bp = Blueprint('api', __name__, url_prefix='/api')
 
 # ── In-memory data structure layer ────────────────────────────────────────────
 _event_map   = EventHashMap()
 _event_heap  = EventMinHeap()
+_event_trie  = TrieSearch()
 _cache_built = False
 
 def _build_cache():
@@ -18,6 +20,7 @@ def _build_cache():
     events = [e.to_dict() for e in Event.query.all()]
     for ev in events:
         _event_map.insert(ev)
+        _event_trie.insert(ev)
     _event_heap.build_from_list(events)
     _cache_built = True
 
@@ -128,6 +131,7 @@ def create_event():
     _ensure_cache()
     _event_map.insert(event_dict)
     _event_heap.push(event_dict)
+    _event_trie.insert(event_dict)
     return jsonify(event_dict), 201
 
 @bp.route('/events/<string:event_id>', methods=['PUT'])
@@ -148,6 +152,8 @@ def update_event(event_id):
     _event_map.insert(event_dict)
     _event_heap.remove(event_id)
     _event_heap.push(event_dict)
+    _event_trie.delete(event_id)
+    _event_trie.insert(event_dict)
     return jsonify(event_dict)
 
 @bp.route('/events/<string:event_id>', methods=['DELETE'])
@@ -158,7 +164,43 @@ def delete_event(event_id):
     db.session.commit()
     _event_map.delete(event_id)
     _event_heap.remove(event_id)
+    _event_trie.delete(event_id)
     return jsonify({'deleted': event_id}), 200
+
+@bp.route('/events/search', methods=['GET'])
+def search_events():
+    """
+    Search events by title prefix using the TrieSearch data structure.
+    O(m + k) where m = query length, k = number of results.
+
+    Query params:
+      q      - search prefix (required)
+      limit  - max results (default 8)
+      user_id - filter by user (optional)
+    """
+    _ensure_cache()
+    query   = request.args.get('q', '').strip()
+    limit   = request.args.get('limit', default=8, type=int)
+    user_id = request.args.get('user_id', type=int)
+
+    if not query:
+        return jsonify({'results': [], 'query': '', 'data_structure': 'Trie'})
+
+    # Trie prefix search — O(m + k)
+    results = _event_trie.search(query, limit=50)
+
+    # Filter by user if specified
+    if user_id:
+        results = [e for e in results if e.get('user_id') == user_id]
+
+    return jsonify({
+        'results':        results[:limit],
+        'query':          query,
+        'total':          len(results),
+        'data_structure': 'Trie',
+        'trie_size':      _event_trie.size(),
+        'trie_nodes':     _event_trie.node_count(),
+    })
 
 @bp.route('/events/upcoming', methods=['GET'])
 def get_upcoming():
