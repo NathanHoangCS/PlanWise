@@ -4,6 +4,7 @@ import AIPanel from './AIPanel';
 import PatternNudge from './PatternNudge';
 import ConflictModal from './ConflictModal';
 import ICSSync from './ICSSync';
+import SearchBar from './SearchBar';
 
 const API = 'http://localhost:5000';
 
@@ -790,6 +791,18 @@ export default function CalendarPage({ profile }) {
             </div>
             <h2 className="cal-title">{headerLabel}</h2>
           </div>
+          <SearchBar
+            profile={profile}
+            onResultClick={ev => {
+              // Navigate to the event's month/week and highlight it
+              const date = new Date(ev.date);
+              setCurrent(date);
+              setView('week');
+              // Find the matching local event and open edit modal
+              const local = events.find(e => e.id === ev.id);
+              if (local) setSelectedEvent(local);
+            }}
+          />
           <div className="view-switcher">
             <button className={view === 'month' ? 'active' : ''} onClick={() => setView('month')}>Month</button>
             <button className={view === 'week' ? 'active' : ''} onClick={() => setView('week')}>Week</button>

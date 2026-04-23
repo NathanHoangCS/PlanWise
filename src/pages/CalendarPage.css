@@ -444,3 +444,17 @@
   .edit-priority-btns { flex-wrap: wrap; }
   .priority-btn { min-width: calc(50% - 4px); }
 }
+
+/* ── Search bar in toolbar ── */
+@media (max-width: 768px) {
+  .cal-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .search-bar {
+    order: 3;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 4px;
+  }
+}
