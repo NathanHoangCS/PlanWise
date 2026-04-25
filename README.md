@@ -5,7 +5,7 @@
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react)
 ![Flask](https://img.shields.io/badge/Flask-3.0-000000?style=flat&logo=flask)
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B57?style=flat&logo=sqlite)
-![Claude API](https://img.shields.io/badge/Claude-API-CC785C?style=flat)
+
 
 ---
 
