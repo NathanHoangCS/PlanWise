@@ -1,105 +1,55 @@
 .pattern-nudge {
-    position: fixed;
-    bottom: 28px;
-    right: 28px;
-    z-index: 500;
-    background: var(--surface);
-    border: 1px solid var(--border-hover);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    max-width: 320px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(124,106,247,0.1);
-  }
-  
-  .nudge-enter {
-    animation: nudgeSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-  
-  .nudge-exit {
-    animation: nudgeSlideOut 0.25s ease forwards;
-  }
-  
-  @keyframes nudgeSlideIn {
-    from { opacity: 0; transform: translateY(16px) scale(0.96); }
-    to   { opacity: 1; transform: translateY(0)    scale(1); }
-  }
-  
-  @keyframes nudgeSlideOut {
-    from { opacity: 1; transform: translateY(0); }
-    to   { opacity: 0; transform: translateY(8px); }
-  }
-  
-  .nudge-icon {
-    font-size: 1.3rem;
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-  
-  .nudge-body {
-    flex: 1;
-    min-width: 0;
-  }
-  
-  .nudge-message {
-    font-size: 0.82rem;
-    color: var(--text-primary);
-    line-height: 1.5;
-    font-weight: 500;
-  }
-  
-  .nudge-actions {
-    display: flex;
-    gap: 6px;
-    margin-top: 10px;
-  }
-  
-  .nudge-yes {
-    background: var(--accent);
-    border: none;
-    color: #fff;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 6px 14px;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-  
-  .nudge-yes:hover { background: #8d7df9; }
-  
-  .nudge-no {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.75rem;
-    padding: 6px 14px;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  
-  .nudge-no:hover {
-    border-color: var(--border-hover);
-    color: var(--text-secondary);
-  }
-  
-  .nudge-close {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    cursor: pointer;
-    padding: 2px 4px;
-    border-radius: 4px;
-    transition: color 0.15s;
-  }
-  
-  .nudge-close:hover { color: var(--text-secondary); }
+  position: fixed; bottom: 36px; right: 16px; z-index: 500;
+  background: var(--surface); border: 2px solid var(--border);
+  border-radius: 3px; padding: 0;
+  display: flex; flex-direction: column;
+  max-width: 300px; box-shadow: var(--shadow); overflow: hidden;
+}
+
+.nudge-enter { animation: nudgeSlideIn 0.3s ease forwards; }
+.nudge-exit  { animation: nudgeSlideOut 0.2s ease forwards; }
+@keyframes nudgeSlideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes nudgeSlideOut { from { opacity: 1; } to { opacity: 0; transform: translateY(6px); } }
+
+.nudge-icon {
+  background: var(--titlebar-bg);
+  padding: 5px 8px;
+  border-bottom: 2px solid var(--titlebar-border);
+  font-size: 14px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+.nudge-icon::after {
+  content: 'PlanWise';
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 1px 1px 1px rgba(0,0,0,0.4);
+}
+
+.nudge-body { padding: 10px 10px 0; }
+.nudge-message { font-size: 10px; color: var(--text-primary); line-height: 1.5; font-weight: bold; font-family: var(--font); }
+
+.nudge-actions { display: flex; gap: 4px; justify-content: flex-end; padding: 8px; background: var(--surface-3); border-top: 1px solid var(--border); }
+
+.nudge-yes {
+  background: var(--tbtn-bg); border: 1px solid var(--accent);
+  color: var(--accent); font-family: var(--font); font-size: 10px; font-weight: bold;
+  padding: 3px 12px; border-radius: 2px; cursor: pointer; height: 22px; transition: all 0.1s;
+}
+
+.nudge-yes:hover { background: var(--tbtn-hover); border-color: var(--tbtn-hover-border); }
+
+.nudge-no {
+  background: var(--tbtn-bg); border: 1px solid var(--tbtn-border);
+  color: var(--text-muted); font-family: var(--font); font-size: 10px; font-weight: bold;
+  padding: 3px 12px; border-radius: 2px; cursor: pointer; height: 22px; transition: all 0.1s;
+}
+
+.nudge-no:hover { background: var(--tbtn-hover); color: var(--text-primary); }
+.nudge-close { display: none; }
+
+@media (max-width: 768px) {
+  .pattern-nudge { left: 8px; right: 8px; bottom: 80px; max-width: unset; }
+}
